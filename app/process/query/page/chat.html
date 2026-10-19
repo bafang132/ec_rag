@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>跨境电商 RAG 智能问答</title>
+<style>
+  :root {
+    --primary: #1668dc;
+    --primary-hover: #0f57b8;
+    --bg: #f5f7fa;
+    --panel: #ffffff;
+    --border: #e5e8ee;
+    --text: #1f2733;
+    --text-secondary: #6b7686;
+    --user-bubble: #1668dc;
+    --ai-bubble: #ffffff;
+    --danger: #d4380d;
+    --success: #389e0d;
+    --warning-bg: #fff7e6;
+    --warning-border: #ffd591;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text); height: 100vh; display: flex; overflow: hidden;
+  }
+
+  /* ============ 左侧会话栏 ============ */
+  .sidebar {
+    width: 250px; background: var(--panel); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; flex-shrink: 0;
+  }
+  .sidebar-header { padding: 14px; border-bottom: 1px solid var(--border); }
+  .logo { font-size: 16px; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+  .logo-sub { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+  .new-chat-btn {
+    margin: 12px 14px; padding: 9px 12px; background: var(--primary); color: #fff;
+    border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;
+    transition: background .15s;
+  }
+  .new-chat-btn:hover { background: var(--primary-hover); }
+  .session-list { flex: 1; overflow-y: auto; padding: 0 8px 12px; }
+  .session-item {
+    padding: 9px 10px; border-radius: 8px; cursor: pointer; font-size: 13px;
+    margin-bottom: 2px; display: flex; justify-content: space-between; align-items: center;
+    color: var(--text); transition: background .12s;
+  }
+  .session-item:hover { background: #f0f3f8; }
+  .session-item.active { background: #e8f1ff; color: var(--primary); font-weight: 600; }
+  .session-item .title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .session-item .del { color: #c0c6cf; padding: 0 4px; border-radius: 4px; font-size: 14px; }
+  .session-item .del:hover { color: var(--danger); background: #ffe7e0; }
+  .sidebar-footer { padding: 10px 14px; border-top: 1px solid var(--border); font-size: 12px; }
+  .sidebar-footer a { color: var(--primary); text-decoration: none; margin-right: 12px; }
+
+  /* ============ 主对话区 ============ */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar {
+    height: 52px; background: var(--panel); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 20px; gap: 16px; flex-shrink: 0;
+  }
+  .topbar-title { font-size: 15px; font-weight: 600; }
+  .topbar-spacer { flex: 1; }
+  .role-selector { display: flex; background: #eef1f6; border-radius: 8px; padding: 3px; gap: 2px; }
+  .role-btn {
+    border: none; background: transparent; padding: 5px 12px; border-radius: 6px;
+    font-size: 12px; cursor: pointer; color: var(--text-secondary); transition: all .15s;
+  }
+  .role-btn.active { background: #fff; color: var(--primary); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .web-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); cursor: pointer; }
+  .web-toggle input { accent-color: var(--primary); }
+  .status-pill { font-size: 11px; color: var(--text-secondary); display: flex; align-items: center; gap: 5px; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #52c41a; }
+  .status-dot.off { background: #c0c6cf; }
+
+  .chat-area { flex: 1; overflow-y: auto; padding: 24px 0; }
+  .chat-inner { max-width: 820px; margin: 0 auto; padding: 0 24px; }
+
+  /* 欢迎页 */
+  .welcome { text-align: center; padding: 60px 20px; }
+  .welcome-icon { font-size: 44px; margin-bottom: 14px; }
+  .welcome h2 { font-size: 20px; margin-bottom: 8px; }
+  .welcome p { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+  .sample-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 640px; margin: 0 auto; }
+  .sample-q {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; font-size: 13px; text-align: left; cursor: pointer;
+    transition: all .15s; color: var(--text);
+  }
+  .sample-q:hover { border-color: var(--primary); color: var(--primary); }
+  .sample-q .tag { display: inline-block; font-size: 10px; background: #e8f1ff; color: var(--primary); border-radius: 4px; padding: 1px 6px; margin-right: 6px; }
+
+  /* 消息 */
+  .msg { display: flex; margin-bottom: 20px; gap: 12px; }
+  .msg-avatar {
+    width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 15px;
+  }
+  .msg.user .msg-avatar { background: var(--user-bubble); color: #fff; }
+  .msg.assistant .msg-avatar { background: #e8f1ff; }
+  .msg-body { flex: 1; min-width: 0; }
+  .msg-bubble {
+    background: var(--ai-bubble); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; font-size: 14px; line-height: 1.75;
+  }
+  .msg.user .msg-bubble { background: var(--user-bubble); color: #fff; border: none; }
+  .msg-bubble h3 { font-size: 14px; margin: 12px 0 6px; color: var(--primary); }
+  .msg-bubble h3:first-child { margin-top: 0; }
+  .msg-bubble p { margin: 6px 0; }
+  .msg-bubble ol, .msg-bubble ul { margin: 6px 0 6px 20px; }
+  .msg-bubble li { margin: 3px 0; }
+  .msg.user .msg-bubble h3 { color: #cfe4ff; }
+  .msg-meta { font-size: 11px; color: var(--text-secondary); margin-top: 6px; display: flex; gap: 12px; }
+  .compliance-warning {
+    background: var(--warning-bg); border: 1px solid var(--warning-border);
+    border-radius: 8px; padding: 10px 12px; font-size: 12px; margin-bottom: 10px;
+    color: #ad4e00; line-height: 1.6; white-space: pre-line;
+  }
+  .progress-line { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .spinner { width: 12px; height: 12px; border: 2px solid #d6e4f8; border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .typing-cursor { display: inline-block; width: 2px; height: 14px; background: var(--primary); animation: blink 1s step-end infinite; vertical-align: text-bottom; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* 输入区 */
+  .input-area { border-top: 1px solid var(--border); background: var(--panel); padding: 14px 24px 18px; flex-shrink: 0; }
+  .input-inner { max-width: 820px; margin: 0 auto; display: flex; gap: 10px; align-items: flex-end; }
+  .input-box {
+    flex: 1; border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px;
+    font-size: 14px; font-family: inherit; resize: none; outline: none;
+    max-height: 120px; line-height: 1.6; transition: border-color .15s;
+  }
+  .input-box:focus { border-color: var(--primary); }
+  .send-btn {
+    padding: 10px 20px; background: var(--primary); color: #fff; border: none;
+    border-radius: 10px; font-size: 14px; cursor: pointer; font-weight: 600; transition: background .15s;
+  }
+  .send-btn:hover:not(:disabled) { background: var(--primary-hover); }
+  .send-btn:disabled { background: #a9c6ee; cursor: not-allowed; }
+  .input-tip { max-width: 820px; margin: 8px auto 0; font-size: 11px; color: var(--text-secondary); text-align: center; }
+
+  @media (max-width: 860px) {
+    .sidebar { width: 200px; }
+    .sample-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ 左侧会话栏 ============ -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">🛒 跨境电商 RAG</div>
+    <div class="logo-sub">智能问答工作台</div>
+  </div>
+  <button class="new-chat-btn" onclick="newSession()">＋ 新建对话</button>
+  <div class="session-list" id="sessionList"></div>
+  <div class="sidebar-footer">
+    <a href="/admin/html" target="_blank">📚 知识库管理</a>
+    <a href="/eval/html" target="_blank">📊 专业测评</a>
+  </div>
+</aside>
+
+<!-- ============ 主对话区 ============ -->
+<main class="main">
+  <div class="topbar">
+    <span class="topbar-title">智能问答</span>
+    <span class="status-pill" id="serviceStatus"><span class="status-dot" id="statusDot"></span><span id="statusText">服务正常</span></span>
+    <div class="topbar-spacer"></div>
+    <div class="role-selector" id="roleSelector">
+      <button class="role-btn active" data-role="seller" onclick="setRole('seller')">新手卖家</button>
+      <button class="role-btn" data-role="operator" onclick="setRole('operator')">成熟运营</button>
+      <button class="role-btn" data-role="expert" onclick="setRole('expert')">风控专家</button>
+    </div>
+    <label class="web-toggle" title="本地知识库不足时补充联网信息">
+      <input type="checkbox" id="webSearchToggle"> 联网搜索
+    </label>
+  </div>
+
+  <div class="chat-area" id="chatArea">
+    <div class="chat-inner" id="chatInner">
+      <div class="welcome" id="welcome">
+        <div class="welcome-icon">🌍</div>
+        <h2>跨境电商智能问答助手</h2>
+        <p>基于平台规则知识库回答物流、售后、Listing、广告、账号合规、税务等问题<br>回答将标注参考来源，涉及合规风险时自动给出警示</p>
+        <div class="sample-grid">
+          <button class="sample-q" onclick="askSample(this)"><span class="tag">物流</span>亚马逊FBA仓储费怎么计算？滞销库存太多怎么办？</button>
+          <button class="sample-q" onclick="askSample(this)"><span class="tag">售后</span>买家签收后多久可以无理由退货？退货运费谁承担？</button>
+          <button class="sample-q" onclick="askSample(this)"><span class="tag">广告</span>ACoS太高怎么优化？新品期广告怎么开？</button>
+          <button class="sample-q" onclick="askSample(this)"><span class="tag">税务</span>欧洲VAT税率一般多少？什么情况下必须注册税号？</button>
+          <button class="sample-q" onclick="askSample(this)"><span class="tag">合规</span>多个亚马逊账号怎么防止关联封号？</button>
+          <button class="sample-q" onclick="askSample(this)"><span class="tag">术语</span>FBA、FBM、SKU、ASIN、ACoS 都是什么意思？</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="input-area">
+    <div class="input-inner">
+      <textarea class="input-box" id="inputBox" rows="1" placeholder="输入你的跨境电商问题，回车发送（Shift+回车换行）..."
+        onkeydown="handleKeydown(event)" oninput="autoResize(this)"></textarea>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()">发送</button>
+    </div>
+    <div class="input-tip">回答基于知识库生成并标注来源；涉及账号/税务/知识产权问题会自动附加合规提醒</div>
+  </div>
+</main>
+
+<script>
+// ==================== 状态 ====================
+let currentSessionId = null;
+let currentRole = 'seller';
+let isWaiting = false;
+
+// ==================== 初始化 ====================
+window.addEventListener('load', () => {
+  checkHealth();
+  loadSessions();
+});
+
+async function checkHealth() {
+  try {
+    const resp = await fetch('/health');
+    const data = await resp.json();
+    document.getElementById('statusDot').className = 'status-dot';
+    document.getElementById('statusText').textContent =
+      data.vector_backend === 'milvus' ? '服务正常 · Milvus' : '服务正常 · 本地向量库';
+  } catch (e) {
+    document.getElementById('statusDot').className = 'status-dot off';
+    document.getElementById('statusText').textContent = '服务异常';
+  }
+}
+
+// ==================== 会话管理 ====================
+async function loadSessions() {
+  try {
+    const resp = await fetch('/sessions?limit=50');
+    const data = await resp.json();
+    const list = document.getElementById('sessionList');
+    list.innerHTML = '';
+    (data.data || []).forEach(s => {
+      const item = document.createElement('div');
+      item.className = 'session-item' + (s.session_id === currentSessionId ? ' active' : '');
+      item.innerHTML = `<span class="title" title="${s.last_message || ''}">${s.title || (s.last_message || '新对话')}</span><span class="del" onclick="event.stopPropagation();deleteSession('${s.session_id}')">×</span>`;
+      item.onclick = () => switchSession(s.session_id);
+      list.appendChild(item);
+    });
+  } catch (e) { /* 忽略 */ }
+}
+
+async function newSession() {
+  try {
+    const resp = await fetch('/sessions', { method: 'POST' });
+    const data = await resp.json();
+    currentSessionId = data.session_id;
+    document.getElementById('chatInner').innerHTML = document.getElementById('welcome').outerHTML;
+    loadSessions();
+  } catch (e) { alert('创建会话失败'); }
+}
+
+async function deleteSession(sessionId) {
+  if (!confirm('删除该会话及全部聊天记录？')) return;
+  await fetch(`/sessions/${sessionId}`, { method: 'DELETE' });
+  if (sessionId === currentSessionId) { currentSessionId = null; location.reload(); }
+  loadSessions();
+}
+
+async function switchSession(sessionId) {
+  currentSessionId = sessionId;
+  loadSessions();
+  await loadHistory(sessionId);
+}
+
+async function loadHistory(sessionId) {
+  try {
+    const resp = await fetch(`/history/${sessionId}?limit=50`);
+    const data = await resp.json();
+    const inner = document.getElementById('chatInner');
+    inner.innerHTML = '';
+    (data.items || []).forEach(m => appendMessage(m.role, m.text, { silent: true, meta: m.rewritten_query }));
+  } catch (e) { /* 忽略 */ }
+}
+
+// ==================== 角色 / 联网 ====================
+function setRole(role) {
+  currentRole = role;
+  document.querySelectorAll('.role-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.role === role));
+}
+
+// ==================== 发送消息 ====================
+function handleKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+function askSample(btn) {
+  document.getElementById('inputBox').value = btn.textContent.replace(/^(物流|售后|广告|税务|合规|术语)\s*/, '');
+  sendMessage();
+}
+
+async function sendMessage() {
+  const box = document.getElementById('inputBox');
+  const query = box.value.trim();
+  if (!query || isWaiting) return;
+
+  isWaiting = true;
+  document.getElementById('sendBtn').disabled = true;
+  box.value = '';
+  box.style.height = 'auto';
+
+  const welcome = document.getElementById('welcome');
+  if (welcome) welcome.remove();
+
+  appendMessage('user', query);
+
+  // 创建助手消息占位
+  const msgEl = appendMessage('assistant', '');
+  const bubble = msgEl.querySelector('.msg-bubble');
+  bubble.innerHTML = `<div class="progress-line"><span class="spinner"></span><span class="progress-text">正在理解问题...</span></div><div class="answer-text"></div>`;
+  const progressText = msgEl.querySelector('.progress-text');
+  const answerText = msgEl.querySelector('.answer-text');
+
+  // 建立 SSE 流（若当前会话未创建则先用普通接口）
+  if (!currentSessionId) {
+    try {
+      const resp = await fetch('/sessions', { method: 'POST' });
+      const data = await resp.json();
+      currentSessionId = data.session_id;
+      loadSessions();
+    } catch (e) { /* 忽略 */ }
+  }
+
+  try {
+    createSseQueue(currentSessionId);
+    const resp = await fetch('/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query, is_stream: true, session_id: currentSessionId,
+        use_web_search: document.getElementById('webSearchToggle').checked,
+        role: currentRole,
+      }),
+    });
+    if (!resp.ok) throw new Error('请求失败: ' + resp.status);
+    // 监听 SSE 流
+    listenSse(currentSessionId, progressText, answerText, bubble);
+  } catch (err) {
+    answerText.innerHTML = `<span style="color:var(--danger)">请求失败：${err.message}，请检查服务是否启动。</span>`;
+    isWaiting = false;
+    document.getElementById('sendBtn').disabled = false;
+  }
+}
+
+function createSseQueue(sessionId) { /* 队列由后端 push_to_session 自动创建 */ }
+
+function listenSse(sessionId, progressText, answerText, bubble) {
+  const es = new EventSource(`/stream/${sessionId}`);
+  let full = '';
+  es.addEventListener('progress', (e) => {
+    const data = JSON.parse(e.data);
+    if (data.running_list && data.running_list.length) {
+      progressText.textContent = data.running_list.join(' → ') + '...';
+    }
+  });
+  es.addEventListener('delta', (e) => {
+    const data = JSON.parse(e.data);
+    full += data.delta;
+    progressText.parentElement.style.display = 'none';
+    answerText.innerHTML = renderMarkdown(full) + '<span class="typing-cursor"></span>';
+    scrollBottom();
+  });
+  es.addEventListener('web_search_hint', (e) => {
+    const data = JSON.parse(e.data);
+    answerText.innerHTML += `<div class="compliance-warning">💡 ${data.message}</div>`;
+  });
+  es.addEventListener('final', (e) => {
+    const data = JSON.parse(e.data);
+    full = data.answer || full;
+    answerText.innerHTML = renderMarkdown(full);
+    es.close();
+    isWaiting = false;
+    document.getElementById('sendBtn').disabled = false;
+    loadSessions();
+  });
+  es.addEventListener('error', (e) => {
+    try { const data = JSON.parse(e.data); answerText.innerHTML = `<span style="color:var(--danger)">${data.message}</span>`; } catch (_) {}
+    es.close();
+    isWaiting = false;
+    document.getElementById('sendBtn').disabled = false;
+  });
+  es.onerror = () => { es.close(); isWaiting = false; document.getElementById('sendBtn').disabled = false; };
+}
+
+// ==================== 消息渲染 ====================
+function appendMessage(role, text, opts = {}) {
+  const inner = document.getElementById('chatInner');
+  const msgEl = document.createElement('div');
+  msgEl.className = `msg ${role}`;
+  const avatar = role === 'user' ? '👤' : '🤖';
+  msgEl.innerHTML = `
+    <div class="msg-avatar">${avatar}</div>
+    <div class="msg-body">
+      <div class="msg-bubble">${opts.silent ? renderMarkdown(text) : (text || '')}</div>
+      ${opts.meta ? `<div class="msg-meta"><span>改写: ${opts.meta}</span></div>` : ''}
+    </div>`;
+  inner.appendChild(msgEl);
+  scrollBottom();
+  return msgEl;
+}
+
+function renderMarkdown(text) {
+  if (!text) return '';
+  let html = text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+  // 合规提醒块
+  html = html.replace(/⚠️[^\n<]*(?:\n(?!⚠️)[^\n<]*)*/g,
+    m => `<div class="compliance-warning">${m}</div>`);
+  // 段落
+  html = html.split(/\n{2,}/).map(p => {
+    if (p.startsWith('<h3') || p.startsWith('<li') || p.startsWith('<div')) return p;
+    return p.trim() ? `<p>${p.replace(/\n/g, '<br>')}</p>` : '';
+  }).join('');
+  return html;
+}
+
+function scrollBottom() {
+  const area = document.getElementById('chatArea');
+  area.scrollTop = area.scrollHeight;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>知识库导入 - 跨境电商 RAG</title>
+<style>
+  :root {
+    --primary: #1668dc; --primary-hover: #0f57b8; --bg: #f5f7fa; --panel: #ffffff;
+    --border: #e5e8ee; --text: #1f2733; --text-secondary: #6b7686; --danger: #d4380d;
+    --success: #389e0d;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh;
+  }
+  .container { max-width: 860px; margin: 0 auto; padding: 32px 24px 60px; }
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+  .page-title { font-size: 20px; font-weight: 700; }
+  .page-title small { font-size: 12px; color: var(--text-secondary); font-weight: 400; margin-left: 10px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 22px; margin-bottom: 18px;
+  }
+  .btn {
+    padding: 9px 20px; border: 1px solid var(--border); background: var(--panel);
+    border-radius: 8px; font-size: 13px; cursor: pointer; transition: all .15s;
+  }
+  .btn:hover { border-color: var(--primary); color: var(--primary); }
+  .btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
+  .btn.primary:hover { background: var(--primary-hover); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* 上传区 */
+  .drop-zone {
+    border: 2px dashed #c9d4e4; border-radius: 12px; padding: 44px 20px;
+    text-align: center; cursor: pointer; transition: all .2s; background: #fafbfd;
+  }
+  .drop-zone:hover, .drop-zone.dragover { border-color: var(--primary); background: #f0f6ff; }
+  .drop-zone .icon { font-size: 38px; margin-bottom: 10px; }
+  .drop-zone .main-text { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .drop-zone .sub-text { font-size: 12px; color: var(--text-secondary); line-height: 1.8; }
+  #fileInput { display: none; }
+
+  .file-list { margin-top: 16px; }
+  .file-item {
+    display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+    border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; font-size: 13px;
+  }
+  .file-item .f-icon { font-size: 20px; }
+  .file-item .f-name { flex: 1; font-weight: 500; }
+  .file-item .f-size { color: var(--text-secondary); font-size: 12px; }
+  .file-item .f-remove { color: #c0c6cf; cursor: pointer; padding: 2px 8px; border-radius: 4px; }
+  .file-item .f-remove:hover { color: var(--danger); background: #fff2f0; }
+
+  .upload-actions { margin-top: 16px; display: flex; gap: 10px; align-items: center; }
+  .upload-tip { font-size: 12px; color: var(--text-secondary); }
+
+  /* 任务进度 */
+  .task-list { margin-top: 8px; }
+  .task-item {
+    border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px;
+  }
+  .task-head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+  .task-head .t-name { font-weight: 600; }
+  .task-status { font-size: 12px; padding: 2px 10px; border-radius: 10px; }
+  .task-status.processing { background: #e8f1ff; color: var(--primary); }
+  .task-status.completed { background: #f6ffed; color: var(--success); }
+  .task-status.failed { background: #fff2f0; color: var(--danger); }
+  .task-steps { font-size: 12px; color: var(--text-secondary); margin-top: 6px; line-height: 1.8; }
+  .task-steps .done { color: var(--success); }
+  .task-steps .running { color: var(--primary); font-weight: 600; }
+
+  .formats { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .format-tag {
+    font-size: 11px; background: #eef1f6; border-radius: 4px; padding: 2px 8px; color: var(--text-secondary);
+  }
+  .empty-tip { text-align: center; color: var(--text-secondary); font-size: 13px; padding: 24px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="page-header">
+    <div class="page-title">📥 知识库导入 <small>上传跨境电商知识文档，自动完成解析/切分/向量化/入库</small></div>
+    <button class="btn" onclick="location.href='http://localhost:8001/'">← 返回问答</button>
+  </div>
+
+  <div class="card">
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <div class="icon">📄</div>
+      <div class="main-text">点击选择或拖拽文件到此处</div>
+      <div class="sub-text">支持多文件批量上传，每个文件独立任务并行处理</div>
+      <div class="formats">
+        <span class="format-tag">PDF</span><span class="format-tag">Markdown</span>
+        <span class="format-tag">Word (.docx)</span><span class="format-tag">TXT</span>
+        <span class="format-tag">HTML</span><span class="format-tag">Excel</span>
+        <span class="format-tag">PPT</span><span class="format-tag">CSV</span>
+        <span class="format-tag">JSON</span><span class="format-tag">EPUB</span>
+      </div>
+    </div>
+    <input type="file" id="fileInput" multiple onchange="handleFiles(this.files)">
+
+    <div class="file-list" id="fileList"></div>
+
+    <div class="upload-actions">
+      <button class="btn primary" id="uploadBtn" onclick="uploadFiles()" disabled>开始上传导入</button>
+      <button class="btn" onclick="clearFiles()">清空</button>
+      <span class="upload-tip">同名文档（同文件名）重复导入将自动覆盖旧版本</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="font-size:15px;margin-bottom:12px">📋 导入任务</h3>
+    <div class="task-list" id="taskList">
+      <div class="empty-tip">暂无导入任务</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let selectedFiles = [];
+const taskMap = new Map();  // taskId -> {name, timer}
+
+// ==================== 文件选择 ====================
+const dropZone = document.getElementById('dropZone');
+['dragover', 'dragenter'].forEach(ev => dropZone.addEventListener(ev, e => {
+  e.preventDefault(); dropZone.classList.add('dragover');
+}));
+['dragleave', 'drop'].forEach(ev => dropZone.addEventListener(ev, e => {
+  e.preventDefault(); dropZone.classList.remove('dragover');
+}));
+dropZone.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
+
+function handleFiles(files) {
+  selectedFiles = Array.from(files);
+  renderFileList();
+}
+
+function renderFileList() {
+  const list = document.getElementById('fileList');
+  document.getElementById('uploadBtn').disabled = selectedFiles.length === 0;
+  list.innerHTML = selectedFiles.map((f, i) => `
+    <div class="file-item">
+      <span class="f-icon">${fileIcon(f.name)}</span>
+      <span class="f-name">${escapeHtml(f.name)}</span>
+      <span class="f-size">${formatSize(f.size)}</span>
+      <span class="f-remove" onclick="removeFile(${i})">✕</span>
+    </div>`).join('');
+}
+
+function removeFile(index) {
+  selectedFiles.splice(index, 1);
+  renderFileList();
+}
+
+function clearFiles() {
+  selectedFiles = [];
+  renderFileList();
+}
+
+function fileIcon(name) {
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  const map = { pdf: '📕', md: '📘', docx: '📗', doc: '📗', txt: '📄', html: '🌐',
+                xlsx: '📊', csv: '📊', pptx: '📙', json: '🧾' };
+  return map[ext] || '📄';
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+}
+
+// ==================== 上传 ====================
+async function uploadFiles() {
+  if (!selectedFiles.length) return;
+  const formData = new FormData();
+  selectedFiles.forEach(f => formData.append('files', f));
+
+  document.getElementById('uploadBtn').disabled = true;
+  document.getElementById('uploadBtn').textContent = '上传中...';
+
+  try {
+    const resp = await fetch('/upload', { method: 'POST', body: formData });
+    const data = await resp.json();
+    if (data.code === 200 && data.task_ids) {
+      data.task_ids.forEach((tid, i) => {
+        const name = selectedFiles[i] ? selectedFiles[i].name : tid;
+        addTask(tid, name);
+      });
+      clearFiles();
+    } else {
+      alert('上传失败：' + (data.detail || data.message || '未知错误'));
+    }
+  } catch (e) {
+    alert('上传请求失败：' + e.message);
+  } finally {
+    document.getElementById('uploadBtn').disabled = false;
+    document.getElementById('uploadBtn').textContent = '开始上传导入';
+  }
+}
+
+// ==================== 任务轮询 ====================
+function addTask(taskId, name) {
+  taskMap.set(taskId, { name });
+  renderTasks();
+  const timer = setInterval(() => pollTask(taskId), 1200);
+  taskMap.get(taskId).timer = timer;
+  pollTask(taskId);
+}
+
+async function pollTask(taskId) {
+  const task = taskMap.get(taskId);
+  if (!task) return;
+  try {
+    const resp = await fetch(`/status/${taskId}`);
+    const data = await resp.json();
+    task.status = data.status;
+    task.done = data.done_list || [];
+    task.running = data.running_list || [];
+    renderTasks();
+    if (data.status === 'completed' || data.status === 'failed') {
+      clearInterval(task.timer);
+    }
+  } catch (e) { /* 忽略 */ }
+}
+
+function renderTasks() {
+  const container = document.getElementById('taskList');
+  if (taskMap.size === 0) {
+    container.innerHTML = '<div class="empty-tip">暂无导入任务</div>';
+    return;
+  }
+  container.innerHTML = Array.from(taskMap.entries()).map(([tid, t]) => {
+    const statusText = { processing: '处理中', completed: '已完成', failed: '失败' }[t.status] || '等待中';
+    const statusCls = t.status || 'processing';
+    const steps = [
+      ...(t.done || []).map(s => `<span class="done">✓ ${escapeHtml(s)}</span>`),
+      ...(t.running || []).map(s => `<span class="running">⏳ ${escapeHtml(s)}...</span>`),
+    ].join(' → ');
+    return `
+      <div class="task-item">
+        <div class="task-head">
+          <span class="t-name">${escapeHtml(t.name)}</span>
+          <span class="task-status ${statusCls}">${statusText}</span>
+        </div>
+        <div class="task-steps">${steps || '排队中...'}</div>
+      </div>`;
+  }).join('');
+}
+
+function escapeHtml(text) {
+  return String(text ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+</script>
+</body>
+</html>

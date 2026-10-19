@@ -1,0 +1,37 @@
+# ============================================================
+# 跨境电商 RAG 智能问答系统 - 一键编排
+# 用法：
+#   docker compose up -d --build      # 构建并后台启动
+#   docker compose logs -f            # 查看日志
+#   docker compose down               # 停止
+# ============================================================
+services:
+  ec-rag:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ec-rag:latest
+    container_name: ec-rag
+    # 可选：如需鉴权与多租户，取消注释并配置 .env 中的 AUTH_ENABLED / API_KEYS
+    env_file:
+      - .env
+    environment:
+      # 容器内绑定全部网卡，便于容器外访问
+      APP_HOST: "0.0.0.0"
+      IMPORT_APP_PORT: "8000"
+      QUERY_APP_PORT: "8001"
+    ports:
+      - "8000:8000"   # 知识导入
+      - "8001:8001"   # 问答 / 管理 / 测评
+    volumes:
+      # 持久化知识库、向量库、日志（避免容器销毁丢数据）
+      - ./data:/app/data
+      - ./output:/app/output
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

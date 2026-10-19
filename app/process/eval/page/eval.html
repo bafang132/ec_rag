@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>专业测评 - 跨境电商 RAG</title>
+<style>
+  :root {
+    --primary: #1668dc; --primary-hover: #0f57b8; --bg: #f5f7fa; --panel: #ffffff;
+    --border: #e5e8ee; --text: #1f2733; --text-secondary: #6b7686; --danger: #d4380d;
+    --success: #389e0d;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh;
+  }
+  .container { max-width: 980px; margin: 0 auto; padding: 28px 24px 60px; }
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+  .page-title { font-size: 20px; font-weight: 700; }
+  .page-title small { font-size: 12px; color: var(--text-secondary); font-weight: 400; margin-left: 10px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px 22px; margin-bottom: 18px;
+  }
+  .card h3 { font-size: 15px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .card h3 .step {
+    width: 20px; height: 20px; border-radius: 50%; background: var(--primary); color: #fff;
+    font-size: 11px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .card p, .card li { font-size: 13px; line-height: 1.8; color: var(--text); }
+  .card ul { margin-left: 20px; }
+  .formula {
+    background: #f7f9fc; border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 14px; font-family: Consolas, Monaco, monospace; font-size: 12px;
+    margin: 10px 0; color: var(--text); overflow-x: auto; white-space: pre;
+  }
+  .grade-legend { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .grade-badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 4px; background: #eef1f6; color: var(--text-secondary);
+  }
+  .grade-badge b { color: var(--primary); }
+
+  .run-controls { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 12px; color: var(--text-secondary); }
+  .field select, .field input {
+    padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 13px; background: #fff; min-width: 130px;
+  }
+  .checkbox-field { flex-direction: row; align-items: center; gap: 6px; font-size: 13px; }
+  .checkbox-field input { accent-color: var(--primary); }
+  .btn {
+    padding: 9px 22px; border: 1px solid var(--border); background: var(--panel);
+    border-radius: 8px; font-size: 13px; cursor: pointer; transition: all .15s;
+  }
+  .btn:hover { border-color: var(--primary); color: var(--primary); }
+  .btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
+  .btn.primary:hover { background: var(--primary-hover); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  .progress-wrap { margin-top: 16px; display: none; }
+  .progress-wrap.show { display: block; }
+  .progress-bar-bg { height: 8px; background: #eef1f6; border-radius: 4px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; background: var(--primary); width: 0%; transition: width .3s; }
+  .progress-text { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
+
+  /* 结果区 */
+  .result-hero { display: flex; gap: 18px; align-items: center; margin-bottom: 18px; }
+  .score-dial {
+    width: 110px; height: 110px; border-radius: 50%; flex-shrink: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: conic-gradient(var(--primary) calc(var(--p) * 1%), #eef1f6 0);
+    position: relative;
+  }
+  .score-dial::before {
+    content: ''; position: absolute; inset: 10px; border-radius: 50%; background: #fff;
+  }
+  .score-dial .val { position: relative; font-size: 24px; font-weight: 800; color: var(--primary); }
+  .score-dial .lbl { position: relative; font-size: 11px; color: var(--text-secondary); }
+  .grade-big { font-size: 40px; font-weight: 800; }
+  .grade-A { color: #52c41a; } .grade-B { color: var(--primary); }
+  .grade-C { color: #d46b08; } .grade-D { color: #d4380d; } .grade-E, .grade-F { color: #cf1322; }
+  .result-meta { font-size: 13px; color: var(--text-secondary); line-height: 2; }
+
+  table.result-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+  table.result-table th, table.result-table td {
+    padding: 8px 12px; border-bottom: 1px solid #f0f2f5; text-align: left;
+  }
+  table.result-table th { color: var(--text-secondary); font-size: 12px; font-weight: 600; background: #fafbfd; }
+  table.result-table td.num { font-variant-numeric: tabular-nums; }
+  .bar-cell { display: flex; align-items: center; gap: 8px; }
+  .bar-bg { flex: 1; height: 6px; background: #eef1f6; border-radius: 3px; overflow: hidden; max-width: 160px; }
+  .bar-fill { height: 100%; background: var(--primary); }
+  .case-detail { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+  .hit-yes { color: var(--success); font-weight: 700; }
+  .hit-no { color: var(--danger); font-weight: 700; }
+  .testset-sample {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px;
+    font-size: 12px; margin-bottom: 8px; line-height: 1.7;
+  }
+  .testset-sample .q { font-weight: 600; }
+  .testset-sample .rel { color: var(--text-secondary); }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="page-header">
+    <div class="page-title">📊 专业测评 <small>检索质量 + 生成质量量化评估</small></div>
+    <button class="btn" onclick="location.href='/'">← 返回问答</button>
+  </div>
+
+  <!-- 一、测评方法 -->
+  <div class="card">
+    <h3><span class="step">1</span>测评方法</h3>
+    <p><b>检索指标</b>（基于测试集相关文档金标准与系统实际召回的有序列表）：HitRate@k（命中率）、Recall@k（召回率）、Precision@k（准确率）、MRR（平均倒数排名）、NDCG@k（排序质量），报告给出 @1/@3/@5/@10，重点关注 @5。</p>
+    <p style="margin-top:8px"><b>生成指标</b>（评委 1-5 分归一化到 0-1）：faithfulness（忠实度，无幻觉）、answer_relevancy（答案相关性）、context_relevance（上下文相关性）、completeness（完整性）、safety（合规安全性，跨境电商场景下一票否决项）。</p>
+    <div class="formula">综合分 = 0.40 × 检索分 + 0.60 × 生成分
+检索分 = 0.30·HitRate@5 + 0.30·NDCG@5 + 0.25·MRR + 0.15·Recall@5
+生成分 = 0.5 × LLM评委子分 + 0.5 × 客观子分（要点覆盖率 + 参考答案F1）</div>
+    <div class="grade-legend">
+      <span class="grade-badge"><b>A</b> ≥0.90 优秀</span>
+      <span class="grade-badge"><b>B</b> ≥0.80 良好</span>
+      <span class="grade-badge"><b>C</b> ≥0.70 合格</span>
+      <span class="grade-badge"><b>D</b> ≥0.60 待改进</span>
+      <span class="grade-badge"><b>E</b> &lt;0.60 不合格</span>
+      <span class="grade-badge"><b>F</b> 安全分≤0.4 一票否决</span>
+    </div>
+    <p style="margin-top:10px;color:var(--text-secondary);font-size:12px">
+      运行模式说明：<b>offline</b> 进程内直接调用问答图（可评检索+生成全套，推荐）；
+      <b>online</b> 走 HTTP 接口（仅生成质量）；<b>selftest</b> 合成数据自检指标引擎（零依赖）。
+      offline 模式每条用例都会完整跑「意图识别→检索→重排→大模型生成」，CPU 环境 20 条约需数分钟。
+    </p>
+  </div>
+
+  <!-- 二、测试集预览 -->
+  <div class="card">
+    <h3><span class="step">2</span>测试集预览 <span style="font-size:12px;color:var(--text-secondary);font-weight:400" id="testsetCount"></span></h3>
+    <div id="testsetSamples"><div class="loading" style="color:var(--text-secondary);font-size:13px">加载中...</div></div>
+  </div>
+
+  <!-- 三、开始测评 -->
+  <div class="card">
+    <h3><span class="step">3</span>开始测评</h3>
+    <div class="run-controls">
+      <div class="field">
+        <label>运行模式</label>
+        <select id="modeSelect">
+          <option value="offline">offline（全套指标）</option>
+          <option value="selftest">selftest（引擎自检）</option>
+          <option value="online">online（仅生成）</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>样本数（0=全量）</label>
+        <input type="number" id="sampleN" value="0" min="0" style="width:110px">
+      </div>
+      <div class="field checkbox-field">
+        <input type="checkbox" id="useLlm" checked>
+        <label for="useLlm" style="font-size:13px;color:var(--text)">LLM 评委</label>
+      </div>
+      <div class="field checkbox-field">
+        <input type="checkbox" id="compareBase">
+        <label for="compareBase" style="font-size:13px;color:var(--text)">对比纯 LLM 基线</label>
+      </div>
+      <button class="btn primary" id="runBtn" onclick="startEval()">▶ 开始测评</button>
+    </div>
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+      <div class="progress-text" id="progressText">准备中...</div>
+    </div>
+  </div>
+
+  <!-- 四、测评结果 -->
+  <div class="card hidden" id="resultCard">
+    <h3><span class="step">4</span>测评结果</h3>
+    <div class="result-hero">
+      <div class="score-dial" id="scoreDial">
+        <div class="val" id="scoreVal">-</div>
+        <div class="lbl">综合得分</div>
+      </div>
+      <div>
+        <div class="grade-big" id="gradeBig">-</div>
+        <div class="result-meta" id="resultMeta"></div>
+      </div>
+    </div>
+    <table class="result-table" id="retrievalTable"></table>
+    <table class="result-table" id="generationTable" style="margin-top:14px"></table>
+    <div id="baselineCard" style="margin-top:14px"></div>
+    <div style="margin-top:18px">
+      <h3 style="font-size:14px;margin-bottom:8px">逐用例明细</h3>
+      <table class="result-table" id="caseTable"></table>
+    </div>
+  </div>
+</div>
+
+<script>
+let pollTimer = null;
+
+// ==================== 测试集预览 ====================
+async function loadTestset() {
+  try {
+    const resp = await fetch('/api/eval/testset');
+    const data = await resp.json();
+    document.getElementById('testsetCount').textContent = `共 ${data.count} 条用例`;
+    document.getElementById('testsetSamples').innerHTML = (data.samples || []).map(s => `
+      <div class="testset-sample">
+        <div class="q">${escapeHtml(s.query)}</div>
+        <div class="rel">角色：${s.role} ｜ ID：${s.id}</div>
+      </div>`).join('');
+  } catch (e) {
+    document.getElementById('testsetSamples').innerHTML = '<div style="font-size:13px;color:var(--danger)">加载失败：' + e.message + '</div>';
+  }
+}
+
+// ==================== 运行测评 ====================
+async function startEval() {
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.textContent = '测评中...';
+  document.getElementById('resultCard').classList.add('hidden');
+  document.getElementById('progressWrap').classList.add('show');
+  document.getElementById('progressFill').style.width = '0%';
+  document.getElementById('progressText').textContent = '任务启动中...';
+
+  try {
+    const resp = await fetch('/api/eval/run?' + new URLSearchParams({
+      mode: document.getElementById('modeSelect').value,
+      use_llm: document.getElementById('useLlm').checked,
+      n: parseInt(document.getElementById('sampleN').value || '0', 10),
+      compare: document.getElementById('compareBase').checked,
+    }), { method: 'POST' });
+    const data = await resp.json();
+    if (!data.task_id) throw new Error(data.detail || '启动失败');
+    pollStatus(data.task_id);
+  } catch (e) {
+    alert('启动测评失败：' + e.message);
+    resetRunBtn();
+  }
+}
+
+async function pollStatus(taskId) {
+  pollTimer = setInterval(async () => {
+    try {
+      const resp = await fetch(`/api/eval/status?task_id=${taskId}`);
+      const task = await resp.json();
+      if (task.status === 'running' && task.progress) {
+        const p = task.progress;
+        const pct = p.total ? Math.round(p.done / p.total * 100) : 0;
+        document.getElementById('progressFill').style.width = pct + '%';
+        document.getElementById('progressText').textContent =
+          `已完成 ${p.done}/${p.total}${p.current ? ' ｜ 当前：' + p.current.slice(0, 30) : ''}`;
+      } else if (task.status === 'done') {
+        clearInterval(pollTimer);
+        document.getElementById('progressFill').style.width = '100%';
+        document.getElementById('progressText').textContent = '测评完成';
+        renderResult(task.report);
+        resetRunBtn();
+      } else if (task.status === 'error') {
+        clearInterval(pollTimer);
+        document.getElementById('progressText').textContent = '测评失败：' + (task.error || '未知错误');
+        resetRunBtn();
+      } else if (task.status === 'not_found') {
+        clearInterval(pollTimer);
+        document.getElementById('progressText').textContent = '任务不存在';
+        resetRunBtn();
+      }
+    } catch (e) { /* 轮询失败继续重试 */ }
+  }, 2500);
+}
+
+function resetRunBtn() {
+  const btn = document.getElementById('runBtn');
+  btn.disabled = false;
+  btn.textContent = '▶ 开始测评';
+}
+
+// ==================== 结果渲染 ====================
+function renderResult(report) {
+  if (!report) return;
+  const card = document.getElementById('resultCard');
+  card.classList.remove('hidden');
+  card.scrollIntoView({ behavior: 'smooth' });
+
+  const overall = report.overall || {};
+  const score = overall.overall_score ?? 0;
+  const grade = overall.grade || '-';
+  document.getElementById('scoreDial').style.setProperty('--p', Math.round(score * 100));
+  document.getElementById('scoreVal').textContent = score.toFixed(3);
+  const gradeEl = document.getElementById('gradeBig');
+  gradeEl.textContent = grade;
+  gradeEl.className = 'grade-big grade-' + grade;
+  document.getElementById('resultMeta').innerHTML =
+    `检索分：<b>${overall.retrieval_score ?? '-'}</b> ｜ 生成分：<b>${overall.generation_score ?? '-'}</b><br>` +
+    `安全性（否决观察项）：<b>${overall.safety ?? '-'}</b> ｜ 用例数：${report.meta?.n_cases ?? '-'} ｜ ` +
+    `模式：${report.meta?.mode ?? '-'} ｜ LLM评委：${report.meta?.use_llm_judge ? '是' : '否'}`;
+
+  // 检索指标表
+  const ret = report.retrieval || {};
+  const retKeys = ['hit_rate@1', 'hit_rate@3', 'hit_rate@5', 'recall@5', 'precision@5', 'ndcg@5', 'mrr'];
+  document.getElementById('retrievalTable').innerHTML =
+    `<tr><th>检索指标</th><th>值</th><th style="width:60%">可视化</th></tr>` +
+    retKeys.map(k => ret[k] != null ? `<tr><td>${k}</td><td class="num">${ret[k]}</td>
+      <td><div class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:${Math.round(ret[k] * 100)}%"></div></div></div></td></tr>` : '').join('');
+
+  // 生成指标表
+  const gen = report.generation || {};
+  const genKeys = ['faithfulness', 'answer_relevancy', 'context_relevance', 'completeness', 'safety',
+                   'llm_score', 'topic_coverage', 'ref_f1', 'objective_score'];
+  document.getElementById('generationTable').innerHTML =
+    `<tr><th>生成指标</th><th>值</th><th style="width:60%">可视化</th></tr>` +
+    genKeys.map(k => gen[k] != null ? `<tr><td>${k}</td><td class="num">${gen[k]}</td>
+      <td><div class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:${Math.round(gen[k] * 100)}%"></div></div></div></td></tr>` : '').join('');
+
+  // 基线对比
+  const baselineCard = document.getElementById('baselineCard');
+  if (report.baseline) {
+    const delta = report.baseline.delta || {};
+    baselineCard.innerHTML = `<h3 style="font-size:14px;margin-bottom:8px">纯 LLM 基线对比（无 RAG 上下文）</h3>
+      <table class="result-table"><tr><th>维度</th><th>RAG</th><th>基线</th><th>差值</th></tr>` +
+      Object.keys(delta).map(k => {
+        const rag = gen[k] ?? '-', base = report.baseline.generation?.[k] ?? '-', d = delta[k];
+        const cls = d > 0 ? 'hit-yes' : (d < 0 ? 'hit-no' : '');
+        return `<tr><td>${k}</td><td class="num">${rag}</td><td class="num">${base}</td><td class="num ${cls}">${d > 0 ? '+' : ''}${d}</td></tr>`;
+      }).join('') + '</table>';
+  } else {
+    baselineCard.innerHTML = '';
+  }
+
+  // 逐用例明细
+  document.getElementById('caseTable').innerHTML =
+    `<tr><th>ID</th><th>问题</th><th>命中@5</th><th>评委（忠实/相关/完整/安全）</th><th>耗时</th></tr>` +
+    (report.per_case || []).map(c => {
+      const j = c.judgement || {};
+      const jd = [j.faithfulness, j.answer_relevancy, j.completeness, j.safety]
+        .map(v => v ?? '-').join(' / ');
+      const hit = (c.retrieved && c.retrieved.length)
+        ? `<span class="hit-yes">✓ ${c.retrieved[0]}</span>`
+        : '<span class="hit-no">✗</span>';
+      return `<tr><td>${c.id}</td><td>${escapeHtml((c.query || '').slice(0, 26))}</td>
+        <td>${hit}</td><td class="num">${jd}</td><td class="num">${c.latency_ms ?? '-'}ms</td></tr>`;
+    }).join('');
+}
+
+function escapeHtml(text) {
+  return String(text ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+loadTestset();
+</script>
+</body>
+</html>

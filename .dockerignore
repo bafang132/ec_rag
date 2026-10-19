@@ -1,0 +1,33 @@
+# 版本控制与缓存
+.git
+.gitignore
+.pytest_cache
+__pycache__
+*.pyc
+*.pyo
+
+# 虚拟环境
+.venv
+venv
+env
+
+# 数据与运行时产物（容器内用卷持久化，不进镜像）
+data/
+output/
+logs/
+*.tmp
+
+# 预编译的 C 动态库（容器内用 gcc 重新编译，平台相关不应拷贝）
+csrc/prebuilt/
+
+# 文档与本地密钥（按需保留 README/LICENSE，排除 .env）
+.env
+docs/
+*.md
+!README.md
+!LICENSE
+
+# 编辑器 / 系统
+.idea
+.vscode
+.DS_Store

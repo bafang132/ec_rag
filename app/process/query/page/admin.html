@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>知识库管理 - 跨境电商 RAG</title>
+<style>
+  :root {
+    --primary: #1668dc; --primary-hover: #0f57b8; --bg: #f5f7fa; --panel: #ffffff;
+    --border: #e5e8ee; --text: #1f2733; --text-secondary: #6b7686; --danger: #d4380d;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh;
+  }
+  .container { max-width: 1080px; margin: 0 auto; padding: 28px 24px; }
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .page-title { font-size: 20px; font-weight: 700; }
+  .page-title small { font-size: 12px; color: var(--text-secondary); font-weight: 400; margin-left: 10px; }
+  .header-actions { display: flex; gap: 10px; }
+  .btn {
+    padding: 8px 16px; border: 1px solid var(--border); background: var(--panel);
+    border-radius: 8px; font-size: 13px; cursor: pointer; color: var(--text); transition: all .15s;
+  }
+  .btn:hover { border-color: var(--primary); color: var(--primary); }
+  .btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .btn.primary:hover { background: var(--primary-hover); }
+  .btn.danger { color: var(--danger); border-color: #ffccc7; }
+  .btn.danger:hover { background: #fff2f0; border-color: var(--danger); }
+  .btn.sm { padding: 4px 10px; font-size: 12px; }
+
+  .stats-bar { display: flex; gap: 14px; margin-bottom: 18px; }
+  .stat-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 18px; flex: 1;
+  }
+  .stat-card .num { font-size: 22px; font-weight: 700; color: var(--primary); }
+  .stat-card .label { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+  .table-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    text-align: left; padding: 11px 14px; background: #fafbfd; color: var(--text-secondary);
+    font-weight: 600; font-size: 12px; border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  tbody td { padding: 11px 14px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; }
+  tbody tr:hover { background: #fafbfd; }
+  tbody tr:last-child td { border-bottom: none; }
+  .doc-title { font-weight: 600; }
+  .doc-file { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+  .tag {
+    display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 4px;
+    background: #eef1f6; color: var(--text-secondary); margin-right: 4px; white-space: nowrap;
+  }
+  .tag.platform { background: #e8f1ff; color: var(--primary); }
+  .tag.market { background: #f6ffed; color: #389e0d; }
+  .tag.category { background: #fff7e6; color: #d46b08; }
+  .num-cell { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+
+  /* 切片抽屉 */
+  .drawer-mask {
+    position: fixed; inset: 0; background: rgba(0,0,0,.3); display: none;
+    align-items: stretch; justify-content: flex-end; z-index: 100;
+  }
+  .drawer-mask.open { display: flex; }
+  .drawer {
+    width: 480px; max-width: 92vw; background: var(--panel); height: 100%;
+    display: flex; flex-direction: column; box-shadow: -4px 0 16px rgba(0,0,0,.1);
+  }
+  .drawer-header {
+    padding: 16px 18px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .drawer-title { font-size: 15px; font-weight: 700; }
+  .drawer-body { flex: 1; overflow-y: auto; padding: 16px 18px; }
+  .chunk-item {
+    border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;
+    margin-bottom: 10px; font-size: 12px; line-height: 1.7;
+  }
+  .chunk-item .chunk-meta { color: var(--text-secondary); font-size: 11px; margin-bottom: 6px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .drawer-footer { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+  .loading { text-align: center; color: var(--text-secondary); padding: 40px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="page-header">
+    <div class="page-title">📚 知识库管理 <small>查看已导入的知识文档、切片与元数据</small></div>
+    <div class="header-actions">
+      <button class="btn" onclick="location.href='/'">← 返回问答</button>
+      <button class="btn primary" onclick="loadItems()">🔄 刷新</button>
+    </div>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-card"><div class="num" id="statDocs">-</div><div class="label">知识文档（主体）</div></div>
+    <div class="stat-card"><div class="num" id="statChunks">-</div><div class="label">知识切片</div></div>
+    <div class="stat-card"><div class="num" id="statPlatforms">-</div><div class="label">覆盖平台</div></div>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>文档主体</th><th>平台 / 市场 / 类目</th><th>切片数</th><th>字符数</th><th style="width:150px">操作</th>
+        </tr>
+      </thead>
+      <tbody id="itemTableBody">
+        <tr><td colspan="5" class="loading">加载中...</td></tr>
+      </tbody>
+    </table>
+    <div class="empty-state" id="emptyState" style="display:none">
+      <div class="icon">📭</div>
+      <p>知识库暂无文档</p>
+      <p style="font-size:12px;margin-top:6px">请先到 <a href="http://localhost:8000/html" target="_blank" style="color:var(--primary)">导入服务（8000）</a> 上传知识文档</p>
+    </div>
+  </div>
+</div>
+
+<!-- 切片抽屉 -->
+<div class="drawer-mask" id="drawerMask" onclick="if(event.target===this)closeDrawer()">
+  <div class="drawer">
+    <div class="drawer-header">
+      <div class="drawer-title" id="drawerTitle">切片详情</div>
+      <button class="btn sm" onclick="closeDrawer()">✕ 关闭</button>
+    </div>
+    <div class="drawer-body" id="drawerBody"><div class="loading">加载中...</div></div>
+    <div class="drawer-footer">
+      <button class="btn danger" id="drawerDeleteBtn" onclick="deleteCurrentItem()">删除该文档全部切片</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentItem = null;
+
+async function loadItems() {
+  const tbody = document.getElementById('itemTableBody');
+  tbody.innerHTML = '<tr><td colspan="5" class="loading">加载中...</td></tr>';
+  try {
+    const resp = await fetch('/admin/items?limit=10000');
+    const data = await resp.json();
+    const items = data.data || [];
+    document.getElementById('emptyState').style.display = items.length ? 'none' : 'block';
+
+    document.getElementById('statDocs').textContent = items.length;
+    document.getElementById('statChunks').textContent =
+      items.reduce((s, i) => s + (i.chunk_count || 0), 0);
+    document.getElementById('statPlatforms').textContent =
+      new Set(items.map(i => i.platform).filter(Boolean)).size;
+
+    if (!items.length) { tbody.innerHTML = ''; return; }
+    tbody.innerHTML = items.map(it => `
+      <tr>
+        <td>
+          <div class="doc-title">${escapeHtml(it.item_name)}</div>
+          <div class="doc-file">${escapeHtml(it.file_title || '')}</div>
+        </td>
+        <td>
+          ${it.platform && it.platform !== '未分类' ? `<span class="tag platform">${escapeHtml(it.platform)}</span>` : ''}
+          ${it.market && it.market !== '未分类' ? `<span class="tag market">${escapeHtml(it.market)}</span>` : ''}
+          ${it.category && it.category !== '未分类' ? `<span class="tag category">${escapeHtml(it.category)}</span>` : ''}
+        </td>
+        <td class="num-cell">${it.chunk_count || 0}</td>
+        <td class="num-cell">${(it.char_count || 0).toLocaleString()}</td>
+        <td>
+          <button class="btn sm" onclick="viewChunks('${escapeHtml(it.item_name)}')">查看切片</button>
+          <button class="btn sm danger" onclick="deleteItem('${escapeHtml(it.item_name)}')">删除</button>
+        </td>
+      </tr>`).join('');
+  } catch (e) {
+    tbody.innerHTML = '<tr><td colspan="5" class="loading">加载失败：' + e.message + '</td></tr>';
+  }
+}
+
+async function viewChunks(itemName) {
+  currentItem = itemName;
+  document.getElementById('drawerTitle').textContent = `切片详情：${itemName}`;
+  document.getElementById('drawerBody').innerHTML = '<div class="loading">加载中...</div>';
+  document.getElementById('drawerMask').classList.add('open');
+  try {
+    const resp = await fetch(`/admin/items/${encodeURIComponent(itemName)}/chunks?limit=200`);
+    const data = await resp.json();
+    const chunks = data.chunks || [];
+    document.getElementById('drawerBody').innerHTML = chunks.length ? chunks.map(c => `
+      <div class="chunk-item">
+        <div class="chunk-meta">
+          <span>#${c.chunk_id}</span>
+          <span>${escapeHtml(c.title || '')}</span>
+          ${c.platform && c.platform !== '未分类' ? `<span class="tag platform">${escapeHtml(c.platform)}</span>` : ''}
+          ${c.category && c.category !== '未分类' ? `<span class="tag category">${escapeHtml(c.category)}</span>` : ''}
+        </div>
+        <div>${escapeHtml(c.content || '')}</div>
+      </div>`).join('') : '<div class="empty-state"><p>该文档暂无切片</p></div>';
+  } catch (e) {
+    document.getElementById('drawerBody').innerHTML = '<div class="loading">加载失败：' + e.message + '</div>';
+  }
+}
+
+function closeDrawer() {
+  document.getElementById('drawerMask').classList.remove('open');
+  currentItem = null;
+}
+
+async function deleteItem(itemName) {
+  if (!confirm(`确定删除文档「${itemName}」及其全部切片？此操作不可恢复。`)) return;
+  await fetch(`/admin/items/${encodeURIComponent(itemName)}`, { method: 'DELETE' });
+  loadItems();
+}
+
+async function deleteCurrentItem() {
+  if (!currentItem) return;
+  if (!confirm(`确定删除文档「${currentItem}」及其全部切片？此操作不可恢复。`)) return;
+  await fetch(`/admin/items/${encodeURIComponent(currentItem)}`, { method: 'DELETE' });
+  closeDrawer();
+  loadItems();
+}
+
+function escapeHtml(text) {
+  return String(text ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+loadItems();
+</script>
+</body>
+</html>

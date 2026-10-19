@@ -1,0 +1,47 @@
+[project]
+name = "ec-rag"
+version = "1.0.0"
+description = "跨境电商 RAG 智能问答系统（LangGraph + 混合检索 + 多后端降级）"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.104.1",
+    "uvicorn[standard]>=0.24.0",
+    "python-multipart>=0.0.7",
+    "pydantic>=2.0.0",
+    "langgraph>=0.2.0",
+    "langchain-core>=0.2.0",
+    "langchain-text-splitters>=0.2.0",
+    "openai>=1.30.0",
+    "python-dotenv>=1.0.0",
+    "PyYAML>=6.0",
+    "loguru>=0.7.0",
+    "requests>=2.31.0",
+    "markitdown[all]>=0.1.7",
+    "pypdf>=4.0.0",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-timeout>=2.3.0",
+]
+
+[project.optional-dependencies]
+milvus = ["pymilvus>=2.4.0"]
+faiss = ["faiss-cpu>=1.7.4"]
+bge = ["FlagEmbedding>=1.2.0"]
+mongo = ["pymongo>=4.6.0"]
+minio = ["minio>=7.1.0"]
+# 第三方评测对接（RAGAS / TruLens）：可选，非强制依赖
+eval = ["ragas>=0.1.9", "datasets>=2.14.0", "trulens-eval>=0.21.0", "langchain-openai>=0.1.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+timeout = 120
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

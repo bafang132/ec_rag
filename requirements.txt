@@ -1,0 +1,52 @@
+# ===================== 核心 Web 框架 =====================
+fastapi>=0.104.1
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.7
+pydantic>=2.0.0
+
+# ===================== LangGraph 编排 =====================
+langgraph>=0.2.0
+langchain-core>=0.2.0
+langchain-text-splitters>=0.2.0
+
+# ===================== LLM / Embedding / Reranker =====================
+# OpenAI 兼容客户端（默认 LLM 通道，支持 DashScope/智谱/DeepSeek 等）
+openai>=1.30.0
+# 可选：LangChain 版 ChatOpenAI（安装后自动优先使用，接口不变）
+langchain-openai>=0.1.0
+# 可选：本地 BGE-M3 Embedding + bge-reranker（CPU 可跑，需 torch）
+# FlagEmbedding>=1.2.0
+# 可选：智谱 SDK（EMBEDDING_PROVIDER=zhipu 时使用）
+# zhipuai>=2.0.0
+
+# ===================== 向量库 =====================
+# 二选一：Milvus（生产混合检索）或本地向量库（默认，零依赖）
+pymilvus>=2.4.0
+# faiss-cpu>=1.7.4   # 可选：本地向量库稠密索引加速（不装则用 numpy 暴力检索）
+
+# ===================== 文档解析 =====================
+markitdown[all]>=0.1.7
+pypdf>=4.0.0
+# MinerU 云端 PDF 解析（可选，配置 MINERU_API_TOKEN 后启用）
+
+# ===================== 存储与配置 =====================
+python-dotenv>=1.0.0
+PyYAML>=6.0
+loguru>=0.7.0
+requests>=2.31.0
+
+# ===================== 可选依赖 =====================
+# pymongo>=4.6.0      # MongoDB 会话历史（不装则用本地 JSON）
+# minio>=7.1.0        # MinIO 对象存储（不配置则用本地静态文件）
+
+# ===================== 第三方评测（可选） =====================
+# ragas>=0.1.9        # RAGAS 标准 RAG 评测（faithfulness/answer_relevancy…）
+# datasets>=2.14.0    # ragas 依赖
+# trulens-eval>=0.21.0  # TruLens 应用级评测
+# langchain-openai>=0.1.0  # ragas 评测 LLM 封装
+# 一键安装：pip install -e ".[eval]"
+
+# ===================== 测试 =====================
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+pytest-timeout>=2.3.0
